@@ -1,0 +1,13 @@
+{
+    "provider": "zhipu",
+    "api_key": "",
+    "local_api_key": "sk-local-your-secret-key",
+    "listen_host": "127.0.0.1",
+    "listen_port": 8787,
+    "use_coding_endpoint": true,
+    "custom_user_agent": "",
+    "debug": false,
+    "rate_limit_requests": 100,
+    "timeout": 120,
+    "max_request_body_size": 10485760
+}
