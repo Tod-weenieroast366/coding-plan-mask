@@ -54,7 +54,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/coding-plan-proxy-go.git
+git clone https://github.com/systemime/coding-plan-proxy-go.git
 cd coding-plan-proxy-go
 
 # Build
@@ -291,7 +291,7 @@ coding-plan-proxy-go/
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourusername/coding-plan-proxy-go.git
+git clone https://github.com/systemime/coding-plan-proxy-go.git
 cd coding-plan-proxy-go
 
 # 编译
