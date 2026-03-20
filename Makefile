@@ -1,15 +1,15 @@
 # Coding Plan Mask Makefile
 
-# 变量
-APP_NAME := coding-plan-mask
-VERSION := 0.5.0
+# Variables
+APP_NAME := mask-ctl
+VERSION := 0.5.1
 BUILD_DIR := build
 BIN_DIR := $(BUILD_DIR)/bin
 CMD_DIR := cmd/coding-plan-mask
-INSTALL_DIR := /opt/project/$(APP_NAME)
-CONFIG_DIR := /opt/project/$(APP_NAME)/config
+INSTALL_DIR := /opt/project/coding-plan-mask
+CONFIG_DIR := /opt/project/coding-plan-mask/config
 
-# Go 参数
+# Go parameters
 GOCMD := go
 GOBUILD := $(GOCMD) build
 GOCLEAN := $(GOCMD) clean
@@ -17,114 +17,106 @@ GOTEST := $(GOCMD) test
 GOGET := $(GOCMD) get
 GOMOD := $(GOCMD) mod
 
-# 构建信息
+# Build info
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
-# 链接参数
+# Linker flags
 LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(GIT_COMMIT) -X main.date=$(BUILD_TIME)"
 
-.PHONY: all build clean install uninstall test run fmt vet help
+.PHONY: all build clean install uninstall test run fmt vet help release
 
 all: clean build
 
-## build: 构建二进制文件
 build:
-	@echo "构建 $(APP_NAME) v$(VERSION)..."
+	@echo "Building $(APP_NAME) v$(VERSION)..."
 	@mkdir -p $(BIN_DIR)
 	CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$(APP_NAME) ./$(CMD_DIR)
-	@echo "构建完成: $(BIN_DIR)/$(APP_NAME)"
+	@echo "Build complete: $(BIN_DIR)/$(APP_NAME)"
 
-## build-linux: 构建 Linux amd64 版本
+release:
+	@echo "Cross-compiling all platforms v$(VERSION)..."
+	@mkdir -p $(BIN_DIR)
+	@echo "Building Linux amd64..."
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$(APP_NAME)-linux-amd64 ./$(CMD_DIR)
+	@echo "Building Linux arm64..."
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$(APP_NAME)-linux-arm64 ./$(CMD_DIR)
+	@echo "Building Darwin amd64..."
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$(APP_NAME)-darwin-amd64 ./$(CMD_DIR)
+	@echo "Building Darwin arm64..."
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$(APP_NAME)-darwin-arm64 ./$(CMD_DIR)
+	@echo "Building Windows amd64..."
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$(APP_NAME)-windows-amd64.exe ./$(CMD_DIR)
+	@echo "Building Windows arm64..."
+	GOOS=windows GOARCH=arm64 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$(APP_NAME)-windows-arm64.exe ./$(CMD_DIR)
+	@echo ""
+	@echo "Cross-compilation complete!"
+	@ls -la $(BIN_DIR)/
+
 build-linux:
-	@echo "构建 Linux amd64 版本..."
+	@echo "Building Linux amd64..."
 	@mkdir -p $(BIN_DIR)
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$(APP_NAME)-linux-amd64 ./$(CMD_DIR)
 
-## build-arm64: 构建 Linux arm64 版本
 build-arm64:
-	@echo "构建 Linux arm64 版本..."
+	@echo "Building Linux arm64..."
 	@mkdir -p $(BIN_DIR)
 	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$(APP_NAME)-linux-arm64 ./$(CMD_DIR)
 
-## clean: 清理构建文件
 clean:
-	@echo "清理构建文件..."
+	@echo "Cleaning build files..."
 	@rm -rf $(BUILD_DIR)
 	$(GOCLEAN)
 
-## install: 安装到系统
 install: build
-	@echo "安装 $(APP_NAME)..."
+	@echo "Installing $(APP_NAME)..."
 	@mkdir -p $(INSTALL_DIR)/bin
 	@mkdir -p $(INSTALL_DIR)/deploy
 	@mkdir -p $(CONFIG_DIR)
-	@mkdir -p /var/log/$(APP_NAME)
+	@mkdir -p /var/log/coding-plan-mask
 	@cp $(BIN_DIR)/$(APP_NAME) $(INSTALL_DIR)/bin/
-	@cp deploy/mask-ctl.sh $(INSTALL_DIR)/deploy/
-	@chmod +x $(INSTALL_DIR)/deploy/mask-ctl.sh
+	@cp deploy/mask-ctl.sh $(INSTALL_DIR)/deploy/ 2>/dev/null || true
+	@chmod +x $(INSTALL_DIR)/deploy/mask-ctl.sh 2>/dev/null || true
 	@if [ ! -f $(CONFIG_DIR)/config.toml ]; then \
-		cp deploy/config.example.toml $(CONFIG_DIR)/config.toml; \
-		echo "已创建默认配置文件: $(CONFIG_DIR)/config.toml"; \
+		cp deploy/config.example.toml $(CONFIG_DIR)/config.toml 2>/dev/null || true; \
 	fi
-	@cp deploy/$(APP_NAME).service /etc/systemd/system/
-	@ln -sf $(INSTALL_DIR)/deploy/mask-ctl.sh /usr/local/bin/mask-ctl
-	@systemctl daemon-reload
-	@echo "安装完成"
+	@ln -sf $(INSTALL_DIR)/bin/$(APP_NAME) /usr/local/bin/$(APP_NAME)
+	@echo "Installation complete"
 	@echo ""
-	@echo "使用方法:"
-	@echo "  编辑配置: vim $(CONFIG_DIR)/config.toml"
-	@echo "  启动服务: mask-ctl start 或 systemctl start $(APP_NAME)"
-	@echo "  查看连接: mask-ctl info"
-	@echo "  开机自启: mask-ctl enable"
-	@echo "  查看日志: mask-ctl logs"
+	@echo "Usage:"
+	@echo "  Config: $(CONFIG_DIR)/config.toml"
+	@echo "  Start:  $(APP_NAME)"
+	@echo "  Info:   $(APP_NAME) info"
 
-## uninstall: 从系统卸载
 uninstall:
-	@echo "卸载 $(APP_NAME)..."
-	@systemctl stop $(APP_NAME) 2>/dev/null || true
-	@systemctl disable $(APP_NAME) 2>/dev/null || true
-	@rm -f /etc/systemd/system/$(APP_NAME).service
-	@rm -f /usr/local/bin/mask-ctl
-	@systemctl daemon-reload
+	@echo "Uninstalling $(APP_NAME)..."
+	@rm -f /usr/local/bin/$(APP_NAME)
 	@rm -rf $(INSTALL_DIR)
-	@rm -rf /var/log/$(APP_NAME)
-	@echo "卸载完成"
+	@rm -rf /var/log/coding-plan-mask
+	@echo "Uninstall complete"
 
-## test: 运行测试
 test:
 	$(GOTEST) -v -race -coverprofile=coverage.out ./...
 
-## coverage: 查看测试覆盖率
-coverage: test
-	$(GOCMD) tool cover -html=coverage.out
-
-## run: 本地运行
 run: build
 	$(BIN_DIR)/$(APP_NAME) -debug
 
-## fmt: 格式化代码
 fmt:
 	$(GOCMD) fmt ./...
 
-## vet: 静态检查
 vet:
 	$(GOCMD) vet ./...
 
-## deps: 下载依赖
 deps:
 	$(GOMOD) download
 	$(GOMOD) verify
 
-## tidy: 整理依赖
 tidy:
 	$(GOMOD) tidy
 
-## help: 显示帮助信息
 help:
 	@echo "Coding Plan Mask v$(VERSION)"
 	@echo ""
-	@echo "使用方法:"
-	@sed -n 's/^##//p' $(MAKEFILE_LIST) | column -t -s ':' | sed -e 's/^/ /'
+	@echo "Targets: build, release, clean, install, uninstall, test, run"
 
 .DEFAULT_GOAL := help

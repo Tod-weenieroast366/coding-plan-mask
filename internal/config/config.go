@@ -145,17 +145,16 @@ func DefaultConfig() *Config {
 	}
 }
 
+// DefaultConfigPath 默认配置文件路径
+const DefaultConfigPath = "/opt/project/coding-plan-mask/config/config.toml"
+
 // LoadConfig 从文件加载配置
 func LoadConfig(path string) (*Config, error) {
 	cfg := DefaultConfig()
 	cfg.configPath = path
 
 	if path == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return cfg, nil
-		}
-		path = filepath.Join(homeDir, ".config", "coding-plan-proxy", "config.toml")
+		path = DefaultConfigPath
 		cfg.configPath = path
 	}
 
@@ -166,6 +165,23 @@ func LoadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			// 配置文件不存在，创建默认配置并提示用户
+			if err := createDefaultConfig(path); err != nil {
+				fmt.Printf("⚠️  无法创建默认配置文件: %v\n", err)
+			} else {
+				fmt.Println()
+				fmt.Println("╔════════════════════════════════════════════════════════════╗")
+				fmt.Println("║           首次运行 - 已创建默认配置文件                      ║")
+				fmt.Println("╠════════════════════════════════════════════════════════════╣")
+				fmt.Printf("║  配置文件: %-48s ║\n", path)
+				fmt.Println("╠════════════════════════════════════════════════════════════╣")
+				fmt.Println("║  请编辑配置文件填写以下信息:                                 ║")
+				fmt.Println("║  1. [auth].api_key - 你的 Coding Plan API Key               ║")
+				fmt.Println("║  2. [auth].local_api_key - 本地认证密钥 (可选)               ║")
+				fmt.Println("║  3. [auth].provider - 服务商 (zhipu/aliyun/minimax/...)     ║")
+				fmt.Println("╚════════════════════════════════════════════════════════════╝")
+				fmt.Println()
+			}
 			return cfg, nil
 		}
 		return nil, fmt.Errorf("读取配置文件失败: %w", err)
@@ -394,6 +410,74 @@ func GetProviderNames() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// createDefaultConfig 创建默认配置文件
+func createDefaultConfig(path string) error {
+	// 确保目录存在
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	defaultContent := `# Coding Plan Mask 配置文件
+# 文档: https://github.com/systemime/coding-plan-mask
+
+# ============================================================================
+# 服务器配置
+# ============================================================================
+[server]
+# 监听地址
+listen_host = "127.0.0.1"
+# 监听端口
+listen_port = 8787
+# 调试模式
+debug = false
+# 请求超时(秒)
+timeout = 120
+# 速率限制(每5分钟窗口)
+rate_limit_requests = 100
+# 最大请求体大小(字节)
+max_request_body_size = 10485760
+
+# ============================================================================
+# 认证配置
+# ============================================================================
+[auth]
+# 服务商: zhipu, zhipu_v2, aliyun, minimax, deepseek, moonshot, custom
+provider = "zhipu"
+# Coding Plan API Key (用于向云厂商发起请求)
+# 获取方式: https://open.bigmodel.cn/
+api_key = ""
+# 本地 API Key (客户端连接代理时使用，留空则不验证)
+local_api_key = "sk-local-your-secret-key"
+
+# ============================================================================
+# 端点配置
+# ============================================================================
+[endpoint]
+# 是否使用 Coding Plan 端点
+use_coding_endpoint = true
+# 伪装工具: claudecode, kimicode, openclaw, custom
+disguise_tool = "claudecode"
+# 自定义 User-Agent (留空使用默认，仅当 disguise_tool = "custom" 时生效)
+custom_user_agent = ""
+
+# ============================================================================
+# API URL 配置 (可选 - 自定义 API 端点)
+# ============================================================================
+[api]
+# 自定义 API 基础 URL (留空使用服务商默认地址)
+base_url = ""
+# Coding Plan 端点 URL (留空使用服务商默认地址)
+coding_url = ""
+# 认证头名称 (留空使用默认 "Authorization")
+auth_header = ""
+# 认证前缀 (留空使用默认 "Bearer ")
+auth_prefix = ""
+`
+
+	return os.WriteFile(path, []byte(defaultContent), 0644)
 }
 
 // Providers 支持的服务商列表（默认配置）

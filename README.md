@@ -6,7 +6,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/systemime/coding-plan-mask)
+[![Version](https://img.shields.io/badge/version-0.5.1-green.svg)](https://github.com/systemime/coding-plan-mask)
 
 *Use your Coding Plan subscription with ANY OpenAI-compatible coding tool*
 
@@ -79,17 +79,58 @@ Major AI providers (Zhipu GLM, Alibaba Cloud, MiniMax, DeepSeek, Moonshot, etc.)
 
 #### 1. Install
 
+**Download from Releases (Recommended)**
+
+Download the binary for your platform from [GitHub Releases](https://github.com/systemime/coding-plan-mask/releases):
+
 ```bash
-# Download from releases or build from source
-git clone https://github.com/systemime/coding-plan-mask.git
-cd coding-plan-mask
-make build
-sudo make install
+# Linux amd64
+wget https://github.com/systemime/coding-plan-mask/releases/download/v0.5.1/mask-ctl-linux-amd64
+chmod +x mask-ctl-linux-amd64
+sudo mv mask-ctl-linux-amd64 /usr/local/bin/mask-ctl
+
+# Linux arm64
+wget https://github.com/systemime/coding-plan-mask/releases/download/v0.5.1/mask-ctl-linux-arm64
+chmod +x mask-ctl-linux-arm64
+sudo mv mask-ctl-linux-arm64 /usr/local/bin/mask-ctl
+
+# macOS (Darwin)
+wget https://github.com/systemime/coding-plan-mask/releases/download/v0.5.1/mask-ctl-darwin-arm64
+chmod +x mask-ctl-darwin-arm64
+sudo mv mask-ctl-darwin-arm64 /usr/local/bin/mask-ctl
+
+# Windows
+# Download mask-ctl-windows-amd64.exe from releases
 ```
 
-#### 2. Configure
+**Build from Source**
 
-Edit `/opt/project/coding-plan-mask/config/config.toml`:
+```bash
+git clone https://github.com/systemime/coding-plan-mask.git
+cd coding-plan-mask
+
+# Build for current platform
+make build
+
+# Cross-compile for all platforms
+make release
+```
+
+#### 2. First Run
+
+```bash
+mask-ctl
+```
+
+On first run, a default configuration file will be created at `/opt/project/coding-plan-mask/config/config.toml`. Edit it to fill in your credentials:
+
+```bash
+vim /opt/project/coding-plan-mask/config/config.toml
+```
+
+#### 3. Configure
+
+Edit the configuration file:
 
 ```toml
 [server]
@@ -106,21 +147,19 @@ local_api_key = "sk-local-secret"   # Key for your tools to use
 [endpoint]
 use_coding_endpoint = true
 disguise_tool = "claudecode"        # Mask as Claude Code (recommended)
-# custom_user_agent = ""            # Custom User-Agent (when disguise_tool = "custom")
-
-[api]
-# Optional: Custom API URLs
-base_url = ""                       # Custom base URL
-coding_url = ""                     # Custom coding endpoint URL
 ```
 
-#### 3. Start
+#### 4. Start
 
 ```bash
-mask-ctl start
+# Start the proxy server
+mask-ctl
+
+# Or with systemd (after make install)
+sudo systemctl start coding-plan-mask
 ```
 
-#### 4. Use with Any Tool
+#### 5. Use with Any Tool
 
 Configure your AI coding tool to use:
 
@@ -163,7 +202,7 @@ disguise_tool = "claudecode"  # Claude Code (recommended, compatible with Zhipu/
 | **OpenClaw** | `openclaw` | `OpenClaw-Gateway/1.0` | Open-source AI coding tool |
 | **Custom** | `custom` | (custom) | Use `custom_user_agent` config |
 
-> **Note**: User-Agent values are sourced from official documentation and GitHub issues. See [References](#-参考资料--references) for sources.
+> **Note**: User-Agent values are sourced from official documentation and GitHub issues.
 
 ### 📡 API Endpoints
 
@@ -180,18 +219,14 @@ disguise_tool = "claudecode"  # Claude Code (recommended, compatible with Zhipu/
 ### 📊 Statistics & Management
 
 ```bash
-# View service info and connection
+# View connection info
 mask-ctl info
 
-# View service status
-mask-ctl status
+# View token usage statistics
+mask-ctl stats
 
-# View real-time logs
-mask-ctl logs
-
-# Enable/disable auto-start
-mask-ctl enable
-mask-ctl disable
+# View help
+mask-ctl help
 
 # View usage statistics via API
 curl http://127.0.0.1:8787/stats
@@ -231,12 +266,6 @@ This project is provided for **educational and research purposes only**.
 - Comply with all applicable laws and provider terms
 - Accept full responsibility for any consequences
 
-**Recommendations:**
-1. Only use with APIs you have legitimate access to
-2. Always set `local_api_key` to prevent unauthorized access
-3. Bind to `127.0.0.1` unless you fully understand security implications
-4. Review your provider's Terms of Service
-
 ---
 
 ## 📖 中文文档
@@ -251,40 +280,9 @@ This project is provided for **educational and research purposes only**.
 | ✅ 访问强大的模型 | ❌ **不能在你喜欢的工具里用** |
 | ✅ 获得官方 API Key | ❌ **不能用于自动化/后端** |
 
-#### 🔒 官方限制条款
-
-以阿里云百炼为例，Coding Plan 明确规定：
-
-| 允许的使用方式 | 禁止的使用方式 |
-|---------------|---------------|
-| ✅ Claude Code、Cursor、Cline | ❌ 你自己的 AI 工具 |
-| ✅ VS Code 插件 | ❌ 自定义脚本 |
-| ✅ 人工交互编码 | ❌ 自动化工作流 |
-| | ❌ 后端服务调用 |
-| | ❌ Dify、FastGPT 等平台 |
-
-**违规后果**：订阅暂停或 API Key 封禁
-
-#### 📊 各厂商限制对比
-
-| 服务商 | 月费 | 模型 | 可用于自定义工具？ |
-|--------|------|------|-------------------|
-| 智谱 GLM | ¥20-100+ | GLM-4.7, GLM-5 | ❌ 不可以 |
-| 阿里云百炼 | ¥40-200 | 通义、GLM、MiniMax、Kimi | ❌ 不可以 |
-| MiniMax | 订阅制 | M2.1（非 M2.5！） | ❌ 不可以 |
-| DeepSeek | 订阅制 | DeepSeek V3 | ❌ 不可以 |
-| Moonshot | 订阅制 | Kimi | ❌ 不可以 |
-
 ### 💡 解决方案：Coding Plan Mask
 
 **Coding Plan Mask** 作为你的 Coding Plan API 和任意 OpenAI 兼容工具之间的桥梁。它将你的请求**伪装**成来自官方支持的 IDE 工具。
-
-```
-┌────────────────────┐     ┌──────────────────────┐     ┌─────────────────────┐
-│   你喜欢的 AI 工具   │────▶│   Coding Plan Mask   │────▶│     LLM 供应商      │
-│   （任意！）         │◀────│   （工具伪装）         │◀────│   （以为没问题）     │
-└────────────────────┘     └──────────────────────┘     └─────────────────────┘
-```
 
 ### ✨ 核心功能
 
@@ -298,23 +296,56 @@ This project is provided for **educational and research purposes only**.
 | 🔒 **本地认证** | 用自定义密钥保护你的代理 |
 | ⚡ **高性能** | Go 语言构建，极致效率 |
 | 🔧 **灵活配置** | 支持 TOML 配置文件、环境变量和自定义 API URL |
-| 📈 **速率限制** | 内置速率限制防止滥用 |
 
 ### 🚀 快速开始
 
 #### 1. 安装
 
+**从 Release 下载（推荐）**
+
 ```bash
-# 从 Release 下载或从源码编译
-git clone https://github.com/systemime/coding-plan-mask.git
-cd coding-plan-mask
-make build
-sudo make install
+# Linux amd64
+wget https://github.com/systemime/coding-plan-mask/releases/download/v0.5.1/mask-ctl-linux-amd64
+chmod +x mask-ctl-linux-amd64
+sudo mv mask-ctl-linux-amd64 /usr/local/bin/mask-ctl
+
+# Linux arm64
+wget https://github.com/systemime/coding-plan-mask/releases/download/v0.5.1/mask-ctl-linux-arm64
+chmod +x mask-ctl-linux-arm64
+sudo mv mask-ctl-linux-arm64 /usr/local/bin/mask-ctl
+
+# macOS
+wget https://github.com/systemime/coding-plan-mask/releases/download/v0.5.1/mask-ctl-darwin-arm64
+chmod +x mask-ctl-darwin-arm64
+sudo mv mask-ctl-darwin-arm64 /usr/local/bin/mask-ctl
 ```
 
-#### 2. 配置
+**从源码编译**
 
-编辑 `/opt/project/coding-plan-mask/config/config.toml`：
+```bash
+git clone https://github.com/systemime/coding-plan-mask.git
+cd coding-plan-mask
+
+# 编译当前平台
+make build
+
+# 交叉编译所有平台
+make release
+```
+
+#### 2. 首次运行
+
+```bash
+mask-ctl
+```
+
+首次运行会自动创建配置文件 `/opt/project/coding-plan-mask/config/config.toml`，按提示编辑填写信息：
+
+```bash
+vim /opt/project/coding-plan-mask/config/config.toml
+```
+
+#### 3. 配置
 
 ```toml
 [server]
@@ -331,21 +362,19 @@ local_api_key = "sk-local-secret"   # 你的工具使用的密钥
 [endpoint]
 use_coding_endpoint = true
 disguise_tool = "claudecode"        # 伪装为 Claude Code (推荐)
-# custom_user_agent = ""            # 自定义 User-Agent（当 disguise_tool = "custom" 时）
-
-[api]
-# 可选：自定义 API URL
-base_url = ""                       # 自定义基础 URL
-coding_url = ""                     # 自定义 Coding 端点 URL
 ```
 
-#### 3. 启动
+#### 4. 启动
 
 ```bash
-mask-ctl start
+# 直接启动
+mask-ctl
+
+# 或使用 systemd (make install 后)
+sudo systemctl start coding-plan-mask
 ```
 
-#### 4. 配置你的 AI 工具
+#### 5. 配置你的 AI 工具
 
 ```json
 {
@@ -369,24 +398,12 @@ mask-ctl start
 
 ### 🎭 工具伪装选项
 
-```toml
-[endpoint]
-# 伪装为官方支持的工具
-disguise_tool = "claudecode"  # Claude Code（推荐，兼容智谱/Kimi）
-# disguise_tool = "kimicode"    # Kimi Code API 订阅认证格式
-# disguise_tool = "openclaw"    # OpenClaw
-# disguise_tool = "custom"     # 使用自定义 User-Agent
-# custom_user_agent = "YourCustomTool/1.0"
-```
-
 | 工具 | 标识符 | User-Agent | 说明 |
 |------|--------|------------|------|
 | **Claude Code** | `claudecode` | `claude-code/2.1.63` | Anthropic 官方终端编程助手 (推荐) |
 | **Kimi Code** | `kimicode` | `claude-code/0.1.0` | Kimi Code API 订阅认证格式 |
 | **OpenClaw** | `openclaw` | `OpenClaw-Gateway/1.0` | 开源 AI 编程工具 |
 | **自定义** | `custom` | (自定义) | 使用 `custom_user_agent` 配置 |
-
-> **注**: User-Agent 值来源于官方文档和 GitHub issues，详见[参考资料](#-参考资料--references)。
 
 ### 📡 API 端点
 
@@ -403,26 +420,20 @@ disguise_tool = "claudecode"  # Claude Code（推荐，兼容智谱/Kimi）
 ### 📊 统计与管理
 
 ```bash
-# 查看服务信息和连接配置
+# 查看连接信息
 mask-ctl info
 
-# 查看服务状态
-mask-ctl status
+# 查看 Token 使用统计
+mask-ctl stats
 
-# 查看实时日志
-mask-ctl logs
-
-# 开启/关闭开机自启
-mask-ctl enable
-mask-ctl disable
+# 查看帮助
+mask-ctl help
 
 # 通过 API 查看使用统计
 curl http://127.0.0.1:8787/stats
 ```
 
 ### 🔧 环境变量配置
-
-你也可以通过环境变量进行配置：
 
 | 变量 | 说明 |
 |------|------|
@@ -432,39 +443,6 @@ curl http://127.0.0.1:8787/stats
 | `HOST` | 监听地址 |
 | `PORT` | 监听端口 |
 | `DEBUG` | 启用调试模式 (true/false) |
-| `API_BASE_URL` | 自定义 API 基础 URL |
-| `API_CODING_URL` | 自定义 Coding 端点 URL |
-
-### 📦 项目结构
-
-```
-coding-plan-mask/
-├── cmd/
-│   └── coding-plan-mask/       # 主程序入口
-│       └── main.go
-├── internal/
-│   ├── cmd/                     # 命令行工具
-│   │   └── stats/               # 统计命令
-│   ├── config/                  # 配置管理
-│   │   └── config.go
-│   ├── proxy/                   # 代理核心逻辑
-│   │   └── proxy.go
-│   ├── server/                  # HTTP 服务器
-│   │   └── server.go
-│   ├── storage/                 # 数据存储（SQLite）
-│   │   └── storage.go
-│   └── ratelimit/               # 速率限制
-│       └── ratelimit.go
-├── deploy/                      # 部署相关
-│   ├── config.example.toml      # 配置示例
-│   ├── config.example.json      # JSON 配置示例
-│   ├── mask-ctl.sh              # 控制脚本
-│   └── coding-plan-mask.service # systemd 服务文件
-├── Makefile                     # 构建脚本
-├── go.mod                       # Go 模块定义
-├── go.sum                       # 依赖校验
-└── README.md                    # 项目文档
-```
 
 ### ⚠️ 风险预警
 
@@ -472,53 +450,23 @@ coding-plan-mask/
 
 本项目仅供**学习和研究目的**。
 
-| 风险 | 说明 |
-|------|------|
-| 🔴 **服务条款** | 可能违反你供应商的服务条款 |
-| 🔴 **账户风险** | 不当使用可能导致 API 密钥被吊销或账户被暂停 |
-| 🟡 **无担保** | 软件按"现状"提供，不提供任何担保 |
-| 🟡 **安全风险** | 将代理暴露到公共网络可能导致未授权访问 |
-| 🟢 **自负责任** | 用户需对遵守适用法律法规承担全部责任 |
-
 **使用本软件即表示您同意：**
 - 自行承担使用风险
 - 遵守所有适用法律和供应商条款
 - 对任何后果承担全部责任
 
-**建议：**
-1. 仅在您拥有合法访问权限的 API 上使用
-2. 始终设置 `local_api_key` 以防止未授权访问
-3. 除非您完全了解安全影响，否则绑定到 `127.0.0.1`
-4. 审查您供应商的服务条款
-
----
-
-## 📚 参考资料 / References
-
-- [智谱 AI 开放文档 - Coding Plan FAQ](https://docs.bigmodel.cn/cn/coding-plan/faq)
-- [阿里云百炼 - Coding Plan 接入工具](https://help.aliyun.com/zh/model-studio/other-tools-coding-plan)
-- [Coding Plan 能当 API 用吗？各家限制一览](https://help.apiyi.com/coding-plan-api-restrictions-openai-codex-exception.html)
-
 ---
 
 ## 🛠️ Development
 
-### Build from Source
+### Build Commands
 
 ```bash
-# Clone the repository
-git clone https://github.com/systemime/coding-plan-mask.git
-cd coding-plan-mask
-
-# Install dependencies
-make deps
-
-# Build
+# Build for current platform
 make build
 
-# Build for specific platform
-make build-linux    # Linux amd64
-make build-arm64    # Linux arm64
+# Cross-compile for all platforms
+make release
 
 # Run tests
 make test
@@ -526,6 +474,17 @@ make test
 # Run locally
 make run
 ```
+
+### Cross-Compilation Output
+
+| Platform | Architecture | Output File |
+|----------|-------------|-------------|
+| Linux | amd64 | `mask-ctl-linux-amd64` |
+| Linux | arm64 | `mask-ctl-linux-arm64` |
+| macOS | amd64 | `mask-ctl-darwin-amd64` |
+| macOS | arm64 | `mask-ctl-darwin-arm64` |
+| Windows | amd64 | `mask-ctl-windows-amd64.exe` |
+| Windows | arm64 | `mask-ctl-windows-arm64.exe` |
 
 ### Tech Stack
 
