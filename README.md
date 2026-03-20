@@ -70,6 +70,7 @@ Major AI providers (Zhipu GLM, Alibaba Cloud, MiniMax, DeepSeek, Moonshot, etc.)
 | 🔌 **Universal Compatibility** | Works with ANY OpenAI-compatible client |
 | 🌐 **Multi-Provider** | Support for 6+ major LLM providers |
 | 📊 **Usage Analytics** | Track token consumption in real-time with SQLite storage |
+| 📝 **Readable Logs** | Human-friendly token logs in non-debug mode |
 | 🔒 **Local Auth** | Protect your proxy with custom API key |
 | ⚡ **High Performance** | Built in Go for maximum efficiency |
 | 🔧 **Flexible Configuration** | Support TOML config file, environment variables, and custom API URLs |
@@ -94,7 +95,12 @@ wget https://github.com/systemime/coding-plan-mask/releases/download/v0.7.0/mask
 chmod +x mask-ctl-linux-arm64
 sudo mv mask-ctl-linux-arm64 /usr/local/bin/mask-ctl
 
-# macOS (Darwin)
+# macOS (Darwin amd64)
+wget https://github.com/systemime/coding-plan-mask/releases/download/v0.7.0/mask-ctl-darwin-amd64
+chmod +x mask-ctl-darwin-amd64
+sudo mv mask-ctl-darwin-amd64 /usr/local/bin/mask-ctl
+
+# macOS (Darwin arm64)
 wget https://github.com/systemime/coding-plan-mask/releases/download/v0.7.0/mask-ctl-darwin-arm64
 chmod +x mask-ctl-darwin-arm64
 sudo mv mask-ctl-darwin-arm64 /usr/local/bin/mask-ctl
@@ -122,10 +128,17 @@ make release
 mask-ctl
 ```
 
-On first run, a default configuration file will be created at `/opt/project/coding-plan-mask/config/config.toml`. Edit it to fill in your credentials:
+If you run the binary directly from a folder, the default configuration file will be created beside the executable as `config.toml`. The loader also recognizes `config.eg` and `config.example.toml` in the same directory.
+
+If you install into a protected system path such as `/usr/local/bin`, prefer either:
+
+- `make install` so the service uses `/opt/project/coding-plan-mask/config/config.toml`
+- Or start with an explicit `-config /path/to/config.toml`
+
+Example when running from the extracted folder:
 
 ```bash
-vim /opt/project/coding-plan-mask/config/config.toml
+vim ./config.toml
 ```
 
 #### 3. Configure
@@ -165,11 +178,15 @@ Configure your AI coding tool to use:
 
 ```json
 {
-    "base_url": "http://127.0.0.1:8787/v1",
+    "base_url": "http://127.0.0.1:8787",
     "api_key": "sk-local-secret",
     "model": "glm-4-flash"
 }
 ```
+
+If your client hardcodes `/v1`, that still works. The proxy keeps local management endpoints and transparently forwards any other request path upstream.
+
+In non-debug mode, startup keeps the banner output and proxy activity is shown in a human-friendly text format instead of structured JSON logs.
 
 ### 🤖 Supported Providers
 
@@ -246,6 +263,8 @@ You can also configure via environment variables:
 | `DEBUG` | Enable debug mode (true/false) |
 | `API_BASE_URL` | Custom API base URL |
 | `API_CODING_URL` | Custom coding endpoint URL |
+| `DISGUISE_TOOL` | Override disguise tool |
+| `CUSTOM_USER_AGENT` | Override User-Agent directly |
 
 ### ⚠️ Risk Warning
 
@@ -289,10 +308,11 @@ This project is provided for **educational and research purposes only**.
 | 功能 | 说明 |
 |------|------|
 | 🎭 **工具伪装** | 伪装为 Claude Code、Kimi Code、OpenClaw 或自定义工具 |
-| 🔀 **请求中转** | 将请求中转到 Coding Plan API 端点 |
+| 🔀 **请求中转** | 透传任意上游 API 路径，并附加伪装请求头 |
 | 🔌 **通用兼容** | 兼容任何支持 OpenAI API 的客户端 |
 | 🌐 **多供应商** | 支持 6+ 主流大模型供应商 |
 | 📊 **用量统计** | 实时追踪 Token 消耗，SQLite 持久化存储 |
+| 📝 **可读日志** | 非 debug 模式下输出人类友好的 token 日志 |
 | 🔒 **本地认证** | 用自定义密钥保护你的代理 |
 | ⚡ **高性能** | Go 语言构建，极致效率 |
 | 🔧 **灵活配置** | 支持 TOML 配置文件、环境变量和自定义 API URL |
@@ -314,7 +334,12 @@ wget https://github.com/systemime/coding-plan-mask/releases/download/v0.7.0/mask
 chmod +x mask-ctl-linux-arm64
 sudo mv mask-ctl-linux-arm64 /usr/local/bin/mask-ctl
 
-# macOS
+# macOS amd64
+wget https://github.com/systemime/coding-plan-mask/releases/download/v0.7.0/mask-ctl-darwin-amd64
+chmod +x mask-ctl-darwin-amd64
+sudo mv mask-ctl-darwin-amd64 /usr/local/bin/mask-ctl
+
+# macOS arm64
 wget https://github.com/systemime/coding-plan-mask/releases/download/v0.7.0/mask-ctl-darwin-arm64
 chmod +x mask-ctl-darwin-arm64
 sudo mv mask-ctl-darwin-arm64 /usr/local/bin/mask-ctl
@@ -339,10 +364,17 @@ make release
 mask-ctl
 ```
 
-首次运行会自动创建配置文件 `/opt/project/coding-plan-mask/config/config.toml`，按提示编辑填写信息：
+如果你直接运行下载后的二进制，默认配置会创建在可执行文件同目录下的 `config.toml`，同时也会识别同目录中的 `config.eg` 和 `config.example.toml`。
+
+如果你安装到了 `/usr/local/bin` 这类系统目录，推荐两种方式：
+
+- 使用 `make install`，systemd 配置会使用 `/opt/project/coding-plan-mask/config/config.toml`
+- 或显式传入 `-config /path/to/config.toml`
+
+例如在解压目录中直接运行时：
 
 ```bash
-vim /opt/project/coding-plan-mask/config/config.toml
+vim ./config.toml
 ```
 
 #### 3. 配置
@@ -378,11 +410,15 @@ sudo systemctl start coding-plan-mask
 
 ```json
 {
-    "base_url": "http://127.0.0.1:8787/v1",
+    "base_url": "http://127.0.0.1:8787",
     "api_key": "sk-local-secret",
     "model": "glm-4-flash"
 }
 ```
+
+如果你的客户端固定使用 `/v1` 前缀，也可以继续工作。代理会保留本地管理端点，并将其他路径透明转发到上游。
+
+在非 `debug` 模式下，程序会保留启动横幅，并以人类可读的文本格式输出代理 token 日志，而不是结构化 JSON 日志。
 
 ### 🤖 支持的供应商
 
@@ -443,6 +479,10 @@ curl http://127.0.0.1:8787/stats
 | `HOST` | 监听地址 |
 | `PORT` | 监听端口 |
 | `DEBUG` | 启用调试模式 (true/false) |
+| `API_BASE_URL` | 自定义通用 API 基础 URL |
+| `API_CODING_URL` | 自定义 Coding API URL |
+| `DISGUISE_TOOL` | 覆盖伪装工具 |
+| `CUSTOM_USER_AGENT` | 直接覆盖 User-Agent |
 
 ### ⚠️ 风险预警
 
@@ -492,7 +532,7 @@ make run
 - **HTTP Server**: net/http
 - **Configuration**: TOML (github.com/BurntSushi/toml)
 - **Logging**: Zap (go.uber.org/zap)
-- **Storage**: SQLite3 (github.com/mattn/go-sqlite3)
+- **Storage**: SQLite (modernc.org/sqlite)
 - **Rate Limiting**: golang.org/x/time/rate
 
 ---
