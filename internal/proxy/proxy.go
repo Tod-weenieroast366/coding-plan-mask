@@ -9,8 +9,10 @@ import (
 	"io"
 	"net/http"
 	"net/textproto"
+	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"coding-plan-mask/internal/config"
 	"coding-plan-mask/internal/ratelimit"
@@ -26,6 +28,7 @@ type Proxy struct {
 	client    *http.Client
 	logger    *zap.Logger
 	storage   *storage.Storage
+	output    io.Writer
 }
 
 // New 创建新的代理实例
@@ -50,6 +53,7 @@ func New(cfg *config.Config, logger *zap.Logger, store *storage.Storage) *Proxy 
 		client:    client,
 		logger:    logger,
 		storage:   store,
+		output:    os.Stdout,
 	}
 }
 
@@ -116,12 +120,7 @@ func (p *Proxy) Forward(w http.ResponseWriter, r *http.Request) {
 	headers := p.buildHeaders(provider, codingAPIKey, r.Header)
 
 	// 日志记录
-	p.logger.Info("处理请求",
-		zap.String("method", r.Method),
-		zap.String("path", r.URL.Path),
-		zap.String("model", model),
-		zap.String("provider", p.cfg.Provider),
-	)
+	p.logForwardRequest(model, inputTokens)
 
 	// 创建上游请求
 	upstreamReq, err := http.NewRequestWithContext(r.Context(), "POST", targetURL, bytes.NewReader(body))
@@ -232,6 +231,7 @@ func (p *Proxy) handleStreamResponseWithStats(w http.ResponseWriter, resp *http.
 	// 读取并转发响应，同时收集数据
 	var responseBuf bytes.Buffer
 	var outputTokens int
+	var responseText strings.Builder
 
 	scanner := bufio.NewScanner(resp.Body)
 	scanner.Buffer(make([]byte, 64*1024), 10*1024*1024)
@@ -258,6 +258,8 @@ func (p *Proxy) handleStreamResponseWithStats(w http.ResponseWriter, resp *http.
 				continue
 			}
 
+			responseText.WriteString(extractResponseText(chunk))
+
 			// 提取 usage 中的 token
 			if usage, ok := chunk["usage"].(map[string]interface{}); ok {
 				if pt, ok := usage["total_tokens"].(float64); ok {
@@ -274,13 +276,14 @@ func (p *Proxy) handleStreamResponseWithStats(w http.ResponseWriter, resp *http.
 		p.logger.Warn("读取流式响应失败", zap.Error(err))
 	}
 
+	if outputTokens == 0 {
+		outputTokens = estimateTextTokens(responseText.String())
+	}
+
 	duration := time.Since(startTime).Milliseconds()
 	totalTokens := inputTokens + outputTokens
 
-	p.logger.Info("流式请求完成",
-		zap.Duration("duration", time.Since(startTime)),
-		zap.Int("output_tokens", outputTokens),
-	)
+	p.logForwardResponse(model, outputTokens)
 
 	// 保存记录
 	record := &storage.RequestRecord{
@@ -335,15 +338,13 @@ func (p *Proxy) handleNormalResponseWithStats(w http.ResponseWriter, resp *http.
 			}
 		}
 	}
+	if outputTokens == 0 {
+		outputTokens = estimateOutputTokensFromResponse(respData, respBody)
+	}
 
 	totalTokens := inputTokens + outputTokens
 
-	p.logger.Info("请求完成",
-		zap.Int("status", resp.StatusCode),
-		zap.Duration("duration", time.Since(startTime)),
-		zap.Int("input_tokens", inputTokens),
-		zap.Int("output_tokens", outputTokens),
-	)
+	p.logForwardResponse(model, outputTokens)
 
 	// 保存记录
 	record := &storage.RequestRecord{
@@ -442,6 +443,97 @@ func parseRequestMetadata(body []byte) (map[string]interface{}, string, int) {
 
 	model, _ := reqBody["model"].(string)
 	return reqBody, model, estimateInputTokens(reqBody)
+}
+
+func (p *Proxy) logForwardRequest(model string, inputTokens int) {
+	fields := []zap.Field{
+		zap.Int("input_tokens", inputTokens),
+	}
+	if model != "" {
+		fields = append(fields, zap.String("model", model))
+	}
+	if p.cfg.Debug {
+		fields = append(fields, zap.String("provider", p.cfg.Provider))
+		p.logger.Info("处理请求", fields...)
+		return
+	}
+	fmt.Fprintf(p.logOutput(), "时间：%s 转发请求：模型：%s token数：%d\n", humanLogTime(), displayModel(model), inputTokens)
+}
+
+func (p *Proxy) logForwardResponse(model string, outputTokens int) {
+	fields := []zap.Field{
+		zap.Int("output_tokens", outputTokens),
+	}
+	if model != "" {
+		fields = append(fields, zap.String("model", model))
+	}
+	if p.cfg.Debug {
+		p.logger.Info("请求完成", fields...)
+		return
+	}
+	fmt.Fprintf(p.logOutput(), "时间：%s 转发响应：模型：%s token数：%d\n", humanLogTime(), displayModel(model), outputTokens)
+}
+
+func (p *Proxy) logOutput() io.Writer {
+	if p.output != nil {
+		return p.output
+	}
+	return os.Stdout
+}
+
+func humanLogTime() string {
+	return time.Now().Format("2006-01-02 15:04:05")
+}
+
+func displayModel(model string) string {
+	if model == "" {
+		return "-"
+	}
+	return model
+}
+
+func estimateOutputTokensFromResponse(respData map[string]interface{}, respBody []byte) int {
+	if len(respData) != 0 {
+		if tokens := estimateTextTokens(extractResponseText(respData)); tokens > 0 {
+			return tokens
+		}
+	}
+	return estimateTextTokens(string(respBody))
+}
+
+func estimateTextTokens(text string) int {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return 0
+	}
+	return utf8.RuneCountInString(text) / 2
+}
+
+func extractResponseText(value interface{}) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case []interface{}:
+		var b strings.Builder
+		for _, item := range v {
+			b.WriteString(extractResponseText(item))
+		}
+		return b.String()
+	case map[string]interface{}:
+		priorityKeys := []string{"output_text", "content", "text", "message", "delta"}
+		var b strings.Builder
+		for _, key := range priorityKeys {
+			if child, ok := v[key]; ok {
+				b.WriteString(extractResponseText(child))
+			}
+		}
+		if choices, ok := v["choices"]; ok {
+			b.WriteString(extractResponseText(choices))
+		}
+		return b.String()
+	default:
+		return ""
+	}
 }
 
 // getClientIP 获取客户端 IP

@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	version = "0.6.2"
+	version = "0.7.0"
 	commit  = "unknown"
 	date    = "unknown"
 )
@@ -293,6 +293,7 @@ func initLogger(debug bool) *zap.Logger {
 		zcfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	} else {
 		zcfg = zap.NewProductionConfig()
+		zcfg.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
 		zcfg.EncoderConfig.TimeKey = "time"
 		zcfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}

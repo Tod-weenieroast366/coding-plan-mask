@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -91,5 +92,40 @@ func TestHandleStreamResponsePreservesEventBoundaries(t *testing.T) {
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected 200 status code, got %d", recorder.Code)
+	}
+}
+
+func TestNonDebugLoggingUsesHumanReadableFormat(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Debug = false
+	var out bytes.Buffer
+	p := &Proxy{cfg: cfg, logger: zap.NewNop(), output: &out}
+
+	p.logForwardRequest("glm-5", 123)
+	p.logForwardResponse("glm-5", 456)
+
+	logText := out.String()
+	if !strings.Contains(logText, "转发请求：模型：glm-5 token数：123") {
+		t.Fatalf("expected human-readable request log, got %q", logText)
+	}
+	if !strings.Contains(logText, "转发响应：模型：glm-5 token数：456") {
+		t.Fatalf("expected human-readable response log, got %q", logText)
+	}
+}
+
+func TestEstimateOutputTokensFromResponseFallsBackToContent(t *testing.T) {
+	respData := map[string]interface{}{
+		"choices": []interface{}{
+			map[string]interface{}{
+				"message": map[string]interface{}{
+					"content": "你好，世界",
+				},
+			},
+		},
+	}
+
+	got := estimateOutputTokensFromResponse(respData, nil)
+	if got <= 0 {
+		t.Fatalf("expected fallback output token estimate to be positive, got %d", got)
 	}
 }
