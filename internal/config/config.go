@@ -170,9 +170,30 @@ func getExecutableDir() string {
 	return filepath.Dir(execPath)
 }
 
+var defaultConfigNames = []string{
+	"config.toml",
+	"config.eg",
+	"config.example.toml",
+}
+
+func findConfigInDir(dir string) (string, bool) {
+	for _, name := range defaultConfigNames {
+		path := filepath.Join(dir, name)
+		info, err := os.Stat(path)
+		if err == nil && !info.IsDir() {
+			return path, true
+		}
+	}
+	return "", false
+}
+
 // getDefaultConfigPath 获取默认配置文件路径（在可执行文件所在目录）
 func getDefaultConfigPath() string {
-	return filepath.Join(getExecutableDir(), "config.toml")
+	execDir := getExecutableDir()
+	if path, ok := findConfigInDir(execDir); ok {
+		return path
+	}
+	return filepath.Join(execDir, defaultConfigNames[0])
 }
 
 // LoadConfig 从文件加载配置
