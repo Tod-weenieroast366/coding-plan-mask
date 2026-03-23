@@ -14,6 +14,8 @@
 
 </div>
 
+> 📚 **使用教程**: [Coding‐plan‐mask使用案例](https://github.com/systemime/coding-plan-mask/wiki/Coding%E2%80%90plan%E2%80%90mask%E4%BD%BF%E7%94%A8%E6%A1%88%E4%BE%8B) - 如何让 Trae 等 IDE 使用本地/其他大模型
+
 ---
 
 ## 📖 English Documentation
