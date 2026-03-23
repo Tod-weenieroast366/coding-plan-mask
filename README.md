@@ -147,6 +147,12 @@ claude_code_user_agent = "claude-cli/2.1.76 (external, cli)"
 # Optional: Remove version prefix (e.g., /v1) from request path when forwarding
 # Example: Request to /v1/models will be forwarded as /models only
 remove_version_path = false
+# Mock /models endpoint response (default: false)
+# When enabled, returns mock data instead of forwarding to upstream
+# Matches: /models, /v1/models, /v2/models, /v3/models
+mock_models = false
+# Mock /models response content (JSON string)
+mock_models_resp = '{"object":"list","data":[{"id":"gpt-4","object":"model","owned_by":"organization"}]}'
 ```
 
 #### 4. Start
@@ -262,6 +268,8 @@ You can also configure via environment variables:
 | `OPENCLAW_USER_AGENT` | Override the compatibility UA used by `openclaw` mode |
 | `CUSTOM_USER_AGENT` | Override User-Agent directly |
 | `REMOVE_VERSION_PATH` | Remove version prefix (e.g., `/v1`) from request path when forwarding (true/false) |
+| `MOCK_MODELS` | Enable mock /models endpoint response (true/false) |
+| `MOCK_MODELS_RESP` | Mock /models response content (JSON string) |
 
 ### ⚠️ Risk Warning
 
@@ -399,6 +407,12 @@ openclaw_user_agent = "OpenClaw-Gateway/1.0"
 # 可选：转发时移除请求路径中的版本前缀（如 /v1）
 # 例如：请求 /v1/models 时，转发时只拼接 /models 部分
 remove_version_path = false
+# 模拟 /models 端点响应 (默认: false)
+# 启用后返回模拟数据，不转发到上游
+# 匹配路径: /models, /v1/models, /v2/models, /v3/models
+mock_models = false
+# 模拟 /models 响应内容 (JSON 字符串)
+mock_models_resp = '{"object":"list","data":[{"id":"gpt-4","object":"model","owned_by":"organization"}]}'
 ```
 
 #### 4. 启动
@@ -496,6 +510,8 @@ curl http://127.0.0.1:8787/stats
 | `OPENCLAW_USER_AGENT` | 覆盖 `openclaw` 模式兼容默认 User-Agent |
 | `CUSTOM_USER_AGENT` | 直接覆盖 User-Agent |
 | `REMOVE_VERSION_PATH` | 转发时移除请求路径中的版本前缀（如 `/v1`）(true/false) |
+| `MOCK_MODELS` | 启用模拟 /models 端点响应 (true/false) |
+| `MOCK_MODELS_RESP` | 模拟 /models 响应内容 (JSON 字符串) |
 
 ### ⚠️ 风险预警
 

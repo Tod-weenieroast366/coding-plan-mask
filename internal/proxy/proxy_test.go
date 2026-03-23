@@ -231,3 +231,176 @@ func TestEstimateOutputTokensFromResponseFallsBackToContent(t *testing.T) {
 		t.Fatalf("expected fallback output token estimate to be positive, got %d", got)
 	}
 }
+
+func TestIsModelsRequest(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{
+			name:     "match /models",
+			path:     "/models",
+			expected: true,
+		},
+		{
+			name:     "match /v1/models",
+			path:     "/v1/models",
+			expected: true,
+		},
+		{
+			name:     "match /v2/models",
+			path:     "/v2/models",
+			expected: true,
+		},
+		{
+			name:     "match /v3/models",
+			path:     "/v3/models",
+			expected: true,
+		},
+		{
+			name:     "match /models/ with trailing slash",
+			path:     "/models/",
+			expected: true,
+		},
+		{
+			name:     "match /v1/models/ with trailing slash",
+			path:     "/v1/models/",
+			expected: true,
+		},
+		{
+			name:     "not match /chat/completions",
+			path:     "/chat/completions",
+			expected: false,
+		},
+		{
+			name:     "not match /v1/chat/completions",
+			path:     "/v1/chat/completions",
+			expected: false,
+		},
+		{
+			name:     "not match /v4/models (unsupported version)",
+			path:     "/v4/models",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.DefaultConfig()
+			p := &Proxy{cfg: cfg}
+
+			got := p.isModelsRequest(tt.path)
+			if got != tt.expected {
+				t.Fatalf("expected %v, got %v", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestMockModelsResponse(t *testing.T) {
+	store, err := storage.New(t.TempDir())
+	if err != nil {
+		t.Fatalf("create storage: %v", err)
+	}
+	defer store.Close()
+
+	cfg := config.DefaultConfig()
+	cfg.MockModels = true
+	cfg.RemoveVersionPath = true // 启用后匹配 /models
+	cfg.MockModelsResp = `{"object":"list","data":[{"id":"test-model","object":"model","owned_by":"test"}]}`
+	cfg.LocalAPIKey = "" // 不验证本地 API Key
+
+	p := New(cfg, zap.NewNop(), store)
+
+	req := httptest.NewRequest(http.MethodGet, "/models", nil)
+	recorder := httptest.NewRecorder()
+
+	p.Forward(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d, body: %s", recorder.Code, recorder.Body.String())
+	}
+
+	if recorder.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("expected Content-Type application/json, got %s", recorder.Header().Get("Content-Type"))
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, "test-model") {
+		t.Fatalf("expected mock response to contain 'test-model', got %s", body)
+	}
+}
+
+func TestMockModelsWithV1Path(t *testing.T) {
+	store, err := storage.New(t.TempDir())
+	if err != nil {
+		t.Fatalf("create storage: %v", err)
+	}
+	defer store.Close()
+
+	cfg := config.DefaultConfig()
+	cfg.MockModels = true
+	cfg.RemoveVersionPath = false // 默认值，匹配 /v1/models
+	cfg.MockModelsResp = `{"object":"list","data":[{"id":"v1-model"}]}`
+	cfg.LocalAPIKey = ""
+
+	p := New(cfg, zap.NewNop(), store)
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	recorder := httptest.NewRecorder()
+
+	p.Forward(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d, body: %s", recorder.Code, recorder.Body.String())
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, "v1-model") {
+		t.Fatalf("expected mock response to contain 'v1-model', got %s", body)
+	}
+}
+
+func TestMockModelsDisabled(t *testing.T) {
+	// isModelsRequest 只检查路径，不检查 MockModels 配置
+	// MockModels 配置在 Forward 函数中检查
+	cfg := config.DefaultConfig()
+	p := &Proxy{cfg: cfg}
+
+	// isModelsRequest 应该始终匹配路径，不管 MockModels 设置
+	if !p.isModelsRequest("/models") {
+		t.Fatal("expected isModelsRequest to return true for /models path")
+	}
+	if !p.isModelsRequest("/v1/models") {
+		t.Fatal("expected isModelsRequest to return true for /v1/models path")
+	}
+}
+
+func TestMockModelsWithRemoveVersionPath(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.MockModels = true
+	cfg.RemoveVersionPath = true
+	cfg.MockModelsResp = `{"object":"list","data":[{"id":"v2-model"}]}`
+	cfg.LocalAPIKey = ""
+
+	p := New(cfg, zap.NewNop(), nil)
+
+	tests := []struct {
+		path       string
+		shouldMock bool
+	}{
+		{"/models", true},
+		{"/v1/models", true}, // 现在也匹配，因为无论 remove_version_path 如何都会 mock
+		{"/v2/models", true},
+		{"/chat/completions", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			if p.isModelsRequest(tt.path) != tt.shouldMock {
+				t.Fatalf("path %s: expected shouldMock=%v", tt.path, tt.shouldMock)
+			}
+		})
+	}
+}

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -76,6 +77,12 @@ func (p *Proxy) Forward(w http.ResponseWriter, r *http.Request) {
 	// 速率限制检查
 	if !p.rateLimit.Allow() {
 		p.writeError(w, http.StatusTooManyRequests, "请求过于频繁，请稍后再试")
+		return
+	}
+
+	// 检查是否需要模拟 /models 响应
+	if p.cfg.MockModels && p.isModelsRequest(r.URL.Path) {
+		p.handleMockModels(w, r, startTime, clientIP)
 		return
 	}
 
@@ -158,6 +165,46 @@ func (p *Proxy) Forward(w http.ResponseWriter, r *http.Request) {
 // Embeddings 向量嵌入代理
 func (p *Proxy) Embeddings(w http.ResponseWriter, r *http.Request) {
 	p.Forward(w, r)
+}
+
+// isModelsRequest 检查是否是 /models 请求
+// 匹配规则:
+// - 始终匹配 /models
+// - 始终匹配 /v1/models, /v2/models, /v3/models (版本前缀格式)
+func (p *Proxy) isModelsRequest(path string) bool {
+	path = strings.TrimSuffix(path, "/")
+
+	// 匹配 /models
+	if path == "/models" {
+		return true
+	}
+
+	// 匹配 /v1/models, /v2/models, /v3/models 等
+	if strings.HasSuffix(path, "/models") {
+		prefix := strings.TrimSuffix(path, "/models")
+		return prefix == "/v1" || prefix == "/v2" || prefix == "/v3"
+	}
+
+	return false
+}
+
+// handleMockModels 处理模拟 /models 响应
+func (p *Proxy) handleMockModels(w http.ResponseWriter, r *http.Request, startTime time.Time, clientIP string) {
+	duration := time.Since(startTime).Milliseconds()
+
+	// 验证本地 API Key
+	if !p.validateLocalAPIKey(r) {
+		p.writeError(w, http.StatusUnauthorized, "API Key 无效")
+		return
+	}
+
+	// 返回模拟响应
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(p.cfg.MockModelsResp))
+
+	// 打印日志
+	p.logResponse(r.Method, r.URL.Path, "mock://models", http.StatusOK, duration, clientIP, p.cfg.MockModelsResp)
 }
 
 // validateLocalAPIKey 验证本地 API Key
@@ -437,27 +484,20 @@ func buildTargetURL(baseURL string, r *http.Request, removeVersionPath bool) str
 	return targetURL
 }
 
+// versionPrefixRegex 匹配版本前缀的正则表达式
+// 匹配: /v1, /v2, /v1beta, /v2alpha, /v3rc 等（可选带尾部斜杠）
+var versionPrefixRegex = regexp.MustCompile(`^/?v\d+[a-z]*(?:/|$)`)
+
 // removeVersionPrefix 移除路径中的版本前缀（如 /v1, /v2 等）
 func removeVersionPrefix(path string) string {
-	// 匹配 /v1, /v2, /v1beta, /v2alpha 等版本前缀
-	// 正则匹配：/v 后面跟数字，可选跟 alpha/beta/rc 等
-	path = strings.TrimLeft(path, "/")
-
-	// 常见版本前缀模式
-	versionPatterns := []string{"v1/", "v2/", "v3/", "v1beta/", "v1alpha/", "v2beta/", "v2alpha/"}
-
-	for _, pattern := range versionPatterns {
-		if strings.HasPrefix(path, pattern) {
-			return strings.TrimPrefix(path, pattern)
-		}
+	// 使用正则匹配：/v 后面跟数字，可选跟 alpha/beta/rc 等后缀
+	// 如果匹配到，移除版本前缀部分
+	if versionPrefixRegex.MatchString(path) {
+		// 移除开头的 / 和版本号部分
+		path = versionPrefixRegex.ReplaceAllString(path, "")
+		return strings.Trim(path, "/")
 	}
-
-	// 如果是单纯的版本路径如 /v1 或 /v2（没有后续路径），返回空
-	if path == "v1" || path == "v2" || path == "v3" {
-		return ""
-	}
-
-	return path
+	return strings.Trim(path, "/")
 }
 
 func isHopByHopHeader(key string) bool {
