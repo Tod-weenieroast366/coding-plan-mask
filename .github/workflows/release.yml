@@ -121,13 +121,7 @@ jobs:
       - name: Create SHA256 checksums
         run: |
           cd build/bin
-          for dir in */; do
-            cd "$dir"
-            for f in *; do
-              sha256sum "$f" >> ../../checksums.sha256
-            done
-            cd ..
-          done
+          sha256sum */mask-ctl-* > checksums.sha256
           cat checksums.sha256
 
       - name: Create Release
